@@ -1,0 +1,59 @@
+//@version=5
+indicator("RSI Divergence Indicator", overlay=true)
+
+// === Inputs ===
+rsiLength = input.int(14, title="RSI Length")
+pivotLookback = input.int(5, title="Pivot Lookback")
+maLength = input.int(50, title="Trend MA Length")
+enableVolumeFilter = input.bool(true, title="Use Volume Filter?")
+rsiOverbought = input.int(70, "RSI Overbought Threshold")
+rsiOversold = input.int(30, "RSI Oversold Threshold")
+
+// === Indicators ===
+rsi = ta.rsi(close, rsiLength)
+ma = ta.sma(close, maLength)
+avgVolume = ta.sma(volume, 20)
+
+// === Pivots ===
+priceHigh = ta.pivothigh(high, pivotLookback, pivotLookback)
+priceLow = ta.pivotlow(low, pivotLookback, pivotLookback)
+rsiHigh = ta.pivothigh(rsi, pivotLookback, pivotLookback)
+rsiLow = ta.pivotlow(rsi, pivotLookback, pivotLookback)
+
+// === Persistent state ===
+var float lastPriceHigh = na
+var float lastRSIHigh = na
+var float lastPriceLow = na
+var float lastRSILow = na
+
+bearishDiv = false
+bullishDiv = false
+
+// === Trend Filters ===
+isUptrend = close > ma
+isDowntrend = close < ma
+volumeOk = not enableVolumeFilter or volume > avgVolume
+
+// === Bearish Divergence ===
+if not na(priceHigh) and not na(rsiHigh)
+    if not na(lastPriceHigh) and not na(lastRSIHigh)
+        cond = priceHigh > lastPriceHigh and rsiHigh < lastRSIHigh
+        cond := cond and rsiHigh > rsiOverbought
+        cond := cond and isUptrend and volumeOk
+        bearishDiv := cond
+    lastPriceHigh := priceHigh
+    lastRSIHigh := rsiHigh
+
+// === Bullish Divergence ===
+if not na(priceLow) and not na(rsiLow)
+    if not na(lastPriceLow) and not na(lastRSILow)
+        cond = priceLow < lastPriceLow and rsiLow > lastRSILow
+        cond := cond and rsiLow < rsiOversold
+        cond := cond and isDowntrend and volumeOk
+        bullishDiv := cond
+    lastPriceLow := priceLow
+    lastRSILow := rsiLow
+
+// === Plot signals ===
+plotshape(bearishDiv, title="Divergencia Bajista", location=location.abovebar, style=shape.labeldown, color=color.red, text="🔻")
+plotshape(bullishDiv, title="Divergencia Alcista", location=location.belowbar, style=shape.labelup, color=color.green, text="🔺")
